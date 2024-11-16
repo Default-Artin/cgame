@@ -6,7 +6,8 @@
 #define max_x COLS
 #define max_y LINES
 
-void init(void *w, void *px, void *py, void *fx, void *fy, void *ex, void *ey) {
+// #1 (Added an argument)
+void init(void *w, void *px, void *py, void *fx, void *fy, void *ex, void *ey, void *firstX) {
 	char (*world)[max_x] = w;
 	for (int i = 0; i < max_y; i++) {
 		for (int j = 0; j < max_x; j++) {
@@ -20,9 +21,16 @@ void init(void *w, void *px, void *py, void *fx, void *fy, void *ex, void *ey) {
 
 	int (*foods_x)[10] = fx;
 	int (*foods_y)[10] = fy;
+	int *firstFood_x = firstX; // #1
 	for (int f = 0; f < 10; f++) {
-		*foods_x[f] = rand() % max_x;
-		*foods_y[f] = rand() % max_y;
+		if(f == 0){ //#1
+			*firstFood_x = rand() % max_x;
+			*foods_x[f] = *firstFood_x;
+			*foods_y[f] = rand() % max_y;	
+		}else{ 
+			*foods_x[f] = rand() % max_x;
+			*foods_y[f] = rand() % max_y;
+		}
 	}
 
 	int (*enemy_x)[3] = ex;
@@ -32,8 +40,8 @@ void init(void *w, void *px, void *py, void *fx, void *fy, void *ex, void *ey) {
 		*enemy_y[e] = rand() % max_y;
 	}
 }
-
-void draw(void *w, int score, int player_x, int player_y, void *fx, void *fy, void *ex, void *ey) {
+// #1 (Added an argument)
+void draw(void *w, int score, int player_x, int player_y, void *fx, void *fy, void *ex, void *ey, void *firstX) {
 	char (*world)[max_x] = w;
 	for (int i = 0; i < max_y; i++) {
 		for (int j = 0; j < max_x; j++) {
@@ -51,13 +59,20 @@ void draw(void *w, int score, int player_x, int player_y, void *fx, void *fy, vo
 
 	int (*foods_x)[10] = fx;
 	int (*foods_y)[10] = fy;
+	int *firstFood_x = firstX; // #1
+	
 	attron(COLOR_PAIR(7));
 	for (int f = 0; f < 10; f++)
-		mvprintw(*foods_y[f], *foods_x[f], "$");
+		if(f == 0){ // #1
+			mvprintw(*foods_y[f], *firstFood_x, "$");
+		}else{
+			 mvprintw(*foods_y[f], *foods_x[f], "$");
+		}
 	attroff(COLOR_PAIR(7));
 
 	int (*enemy_x)[3] = ex;
 	int (*enemy_y)[3] = ey;
+	
 	attron(COLOR_PAIR(2));
 	for (int e = 0; e < 3; e++)
 		mvprintw(*enemy_y[e], *enemy_x[e], "&");
@@ -72,23 +87,33 @@ unsigned in_range(int a, int min, int max) {
 	return a;
 }
 
-void check_food(int *score, int player_x, int player_y, void *fx, void *fy) {
+void check_food(int *score, int player_x, int player_y, void *fx, void *fy, void *firstX) {
 	int (*foods_x)[10] = fx;
 	int (*foods_y)[10] = fy;
+	int *firstFood_x = firstX; // #1
 
 	for (int i = 0; i < 10; i++) {
-		if (*foods_x[i] == player_x && *foods_y[i] == player_y) {
-			*score += 10;
-			*foods_x[i] = rand() % max_x;
-			*foods_y[i] = rand() % max_y;
+		if(i == 0) { // #1
+			if(*firstFood_x == player_x && *foods_y[i] == player_y) {
+				*score += 10;
+				*firstFood_x = rand() % max_x;
+				*foods_y[i] = rand() % max_y;
+			}
+		}else{
+			if(*foods_x[i] == player_x && *foods_y[i] == player_y) { 
+				*score += 10;
+				*foods_x[i] = rand() % max_x;
+				*foods_y[i] = rand() % max_y;
+			}
 		}
+
 	}
 }
 
 void move_enemy(_Bool *playing, int player_x, int player_y, void *ex, void *ey) {
 	int (*enemy_x)[3] = ex;
-	int (*enemy_y)[3] = ey;
-	for (int i = 0; i < 3; i++) {
+	int (*enemy_y)[3] = ey; 
+	for (int i = 0; i < 3; i++) {	
 		if (rand() % 100 > 83) {
 			if (*enemy_x[i] > player_x) *enemy_x[i] -= 1;
 		}
@@ -140,13 +165,17 @@ int main(void) {
 	int foods_x[10];
 	int foods_y[10];
 
+	int firstFood_x; // #1
+
 	int enemy_x[3];
 	int enemy_y[3];
-
-	init(world, &player_x, &player_y, foods_x, foods_y, enemy_x, enemy_y);
+	
+	// #1 (Added an argument to the call)
+	init(world, &player_x, &player_y, foods_x, foods_y, enemy_x, enemy_y, &firstFood_x);
 	_Bool playing = true;
 
 	while (playing) {
+		
 		char c = getch();
 		if (c == 'w' && world[player_y-1][player_x] != '.')
 			player_y--;
@@ -160,11 +189,13 @@ int main(void) {
 			playing = false;
 		player_y = in_range(player_y, 0, max_y-1);
 		player_x = in_range(player_x, 0, max_x-1);
-
-		check_food(&score, player_x, player_y, foods_x, foods_y);
+		
+		// #1 (Added an argument here
+		check_food(&score, player_x, player_y, foods_x, foods_y, &firstFood_x);
 		move_enemy(&playing, player_x, player_y, enemy_x, enemy_y);
 		usleep(10000);
-		draw(world, score, player_x, player_y, foods_x, foods_y, enemy_x, enemy_y);
+		// #1 And here)
+		draw(world, score, player_x, player_y, foods_x, foods_y, enemy_x, enemy_y, &firstFood_x);
 	}
 	refresh();
 
